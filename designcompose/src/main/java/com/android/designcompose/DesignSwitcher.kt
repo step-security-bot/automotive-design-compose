@@ -386,6 +386,22 @@ private fun GetProjectList(
     setDocId: (String) -> Unit,
     interactionState: InteractionState
 ) {
+    DesignSwitcherDoc.FigmaDoc(
+        "DriverDisplayValidation",
+        "mDvRBqrx6EkM9IPHn4Ct0v",
+        Modifier.clickable {
+            interactionState.close(null)
+            setDocId("mDvRBqrx6EkM9IPHn4Ct0v")
+        }
+    )
+    DesignSwitcherDoc.FigmaDoc(
+        "DriverUI - 2",
+        "i31jo4qMndrf197a-1",
+        Modifier.clickable {
+            interactionState.close(null)
+            setDocId("i31jo4qMndrf197a-1")
+        }
+    )
     doc?.c?.project_files?.forEach {
         DesignSwitcherDoc.FigmaDoc(
             it.name,
