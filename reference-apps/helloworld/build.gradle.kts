@@ -94,3 +94,6 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.test.espresso.core)
 }
+android {
+    namespace = "com.android.designcompose.testapp.helloworld"
+}
