@@ -1,0 +1,12 @@
+[package]
+name = "rust_in_gradle_test_crate"
+version = "0.1.0"
+
+[workspace]
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+
+[dependencies]
+jni = "0.20.0"
+ring = "0.16.20"

@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+rootProject.name = "test-build-multi-project"
+
+// This is the "default" build for the test project
+
 @Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
@@ -23,35 +27,16 @@ dependencyResolutionManagement {
     }
 }
 
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        google()
+if (System.getProperty("com.android.designcompose.testing.runWithGradleRunner") == null) {
+    pluginManagement {
+        repositories {
+            gradlePluginPortal()
+            google()
+        }
+        includeBuild("../../../../../plugins")
     }
-    includeBuild("plugins")
-    includeBuild("build-logic")
 }
 
-rootProject.name = "DesignCompose"
+include(":myapplication")
 
-include(":designcompose")
-
-include(":annotation")
-
-include(":codegen")
-
-include(":common")
-
-include(":validation-app")
-
-project(":validation-app").projectDir = File("integration-tests/validation")
-
-include(":helloworld-app")
-
-project(":helloworld-app").projectDir = File("reference-apps/helloworld")
-
-include(":tutorial-app")
-
-project(":tutorial-app").projectDir = File("reference-apps/tutorial/app")
-
-includeBuild("build-logic")
+include(":mylibrary")

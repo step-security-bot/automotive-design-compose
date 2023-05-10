@@ -40,7 +40,7 @@ tasks.named("ktfmtCheck") { dependsOn(ktfmtCheckBuildScripts) }
 
 project.plugins.withType(JavaBasePlugin::class.java) {
     project.extensions.getByType(JavaPluginExtension::class.java).toolchain {
-        languageVersion.set(JavaLanguageVersion.of(11))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
@@ -48,8 +48,8 @@ project.plugins.withType(JavaBasePlugin::class.java) {
 // https://kotlinlang.org/docs/gradle-configure-project.html#gradle-java-toolchains-support
 project.plugins.withType(com.android.build.gradle.BasePlugin::class.java) {
     project.extensions.getByType(BaseExtension::class.java).compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     // Replace dependencies on DesignCompose with our project. Because of the way we include our

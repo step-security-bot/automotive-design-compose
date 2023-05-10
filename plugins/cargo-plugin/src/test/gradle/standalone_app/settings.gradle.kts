@@ -14,44 +14,24 @@
  * limitations under the License.
  */
 
+rootProject.name = "test-build-standalone-app"
+
+// This is the standalone test, makes sure the JNI is compiled in properly to the library
+val testProjMavenRepo: String? by settings
+
 @Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
+        maven(uri(testProjMavenRepo ?: File(rootDir, "../build/testProjRepo")))
     }
 }
 
-pluginManagement {
-    repositories {
-        gradlePluginPortal()
-        google()
-    }
-    includeBuild("plugins")
-    includeBuild("build-logic")
-}
+include(":myapplication")
 
-rootProject.name = "DesignCompose"
-
-include(":designcompose")
-
-include(":annotation")
-
-include(":codegen")
-
-include(":common")
-
-include(":validation-app")
-
-project(":validation-app").projectDir = File("integration-tests/validation")
-
-include(":helloworld-app")
-
-project(":helloworld-app").projectDir = File("reference-apps/helloworld")
-
-include(":tutorial-app")
-
-project(":tutorial-app").projectDir = File("reference-apps/tutorial/app")
-
-includeBuild("build-logic")
+project(":myapplication").projectDir =
+    File(
+        "../myapplication"
+    )

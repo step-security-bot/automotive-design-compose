@@ -1,0 +1,48 @@
+// Copyright 2023 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.android.designcompose.cargoplugin.test
+
+import org.spockframework.runtime.model.parallel.ExecutionMode
+import spock.lang.Execution
+import spock.lang.Unroll
+
+import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
+
+@Execution(ExecutionMode.SAME_THREAD)
+class MultiProjectATDTest extends AbstractMultiProjectTest {
+
+    @Unroll
+    @Slow
+    @Execution(ExecutionMode.SAME_THREAD)
+
+    def "Multi-project library ATD test with AGP #agpVersion and Gradle #gradleVersion"() {
+        given:
+        envVars += ["ORG_GRADLE_PROJECT_agpVersion": agpVersion]
+
+        when:
+        def result = baseGradleRunner()
+                .withGradleVersion(gradleVersion)
+                .withProjectDir(testProjectDir)
+                .withArguments("atdCheck")
+                .build()
+
+
+        then:
+        result.task(":mylibrary:atdCheck").outcome == SUCCESS
+        result.task(":myapplication:atdCheck").outcome == SUCCESS
+        where:
+        [agpVersion, gradleVersion] << AbstractTest.agpGradleVersionsMap.collect { [it.key, it.value] }
+    }
+}
