@@ -20,7 +20,7 @@ buildscript {
         mavenCentral()
     }
     val agpVersion: String = findProperty("agpVersion")?.toString() ?: "8.0.0"
-    val kotlinVersion: String = findProperty("kotlinVersion")?.toString() ?: "1.8.20"
+    val kotlinVersion: String = findProperty("kotlinVersion")?.toString() ?: "1.8.21"
 
     dependencies {
         classpath("com.android.tools.build:gradle:$agpVersion")
