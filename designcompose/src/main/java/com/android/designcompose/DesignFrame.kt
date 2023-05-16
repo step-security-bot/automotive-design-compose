@@ -85,9 +85,11 @@ internal fun DesignFrame(
             )
     }
 
+    val meterValue = customizations.getMeterFunction(name)?.let { it() }
+    val customValues = CustomizationValues(meterValue)
     var m =
         Modifier.layoutStyle(name, style)
-            .frameRender(style, shape, customImage, document, name, customizations)
+            .frameRender(style, shape, customImage, document, name, customizations, customValues)
             .then(modifier)
 
     val customModifier = customizations.getModifier(name)
@@ -556,6 +558,7 @@ internal fun Modifier.frameRender(
     document: DocContent,
     name: String,
     customizations: CustomizationContext,
+    customValues: CustomizationValues,
 ): Modifier =
     this.then(
         Modifier.drawWithContent {
@@ -566,7 +569,8 @@ internal fun Modifier.frameRender(
                 customImageWithContext,
                 document,
                 name,
-                customizations
+                customizations,
+                customValues
             )
         }
     )

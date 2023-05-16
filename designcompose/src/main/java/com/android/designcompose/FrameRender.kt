@@ -301,6 +301,7 @@ internal fun ContentDrawScope.render(
     document: DocContent,
     name: String,
     customizations: CustomizationContext,
+    customValues: CustomizationValues,
 ) {
     drawContext.canvas.save()
 
@@ -310,7 +311,10 @@ internal fun ContentDrawScope.render(
     var customArcAngle = false
     var customProgressBar = false
 
-    var meterValue = customizations.getMeterValue(name)
+    var meterValue = customValues.meterValue
+    if (meterValue == null)
+        customizations.getMeterValue(name)
+
     if (meterValue != null) {
         // Check if there is meter data for a dial/gauge/progress bar
         if (style.meter_data.isPresent) {
