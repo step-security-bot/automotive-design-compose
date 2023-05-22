@@ -61,6 +61,7 @@ import com.android.designcompose.serdegen.ScaleMode
 import com.android.designcompose.serdegen.TextAlign
 import com.android.designcompose.serdegen.TextAlignVertical
 import com.android.designcompose.serdegen.TextOverflow
+import com.android.designcompose.serdegen.ViewShape
 import com.android.designcompose.serdegen.ViewStyle
 import com.android.designcompose.serdegen.WindingRule
 import java.util.Optional
@@ -592,6 +593,17 @@ internal fun BlendMode.useLayer() =
         is BlendMode.PassThrough -> false
         else -> true
     }
+
+internal fun ViewShape.isMask(): Boolean {
+    when (this) {
+        is ViewShape.Rect -> return is_mask
+        is ViewShape.RoundRect -> return is_mask
+        is ViewShape.Path -> return is_mask
+        is ViewShape.Arc -> return is_mask
+        is ViewShape.VectorRect -> return is_mask
+    }
+    return false
+}
 
 // Figma expresses gradients in relative terms (offsets are between 0..1), but the built-in
 // LinearGradient and RadialGradient types in Compose use absolute pixel offsets. These

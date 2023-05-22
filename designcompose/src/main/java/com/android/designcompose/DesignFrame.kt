@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -47,20 +48,27 @@ import com.android.designcompose.serdegen.ViewShape
 import com.android.designcompose.serdegen.ViewStyle
 import java.util.Optional
 
+internal data class NodeIdentifier(
+    val name: String,
+    val id: String,
+)
+
 @Composable
 internal fun DesignFrame(
     modifier: Modifier = Modifier,
     style: ViewStyle,
     shape: ViewShape,
-    name: String,
+    node: NodeIdentifier,
     variantParentName: String,
     layoutInfo: SimplifiedLayoutInfo,
     document: DocContent,
     customizations: CustomizationContext,
     componentInfo: Optional<ComponentInfo>,
     parentComponents: List<ParentComponentInfo>,
+    maskManager: MutableState<MaskManager>?,
     content: @Composable (parentLayoutInfo: ParentLayoutInfo) -> Unit,
 ) {
+    val name = node.name
     if (!customizations.getVisible(name)) return
 
     // Check for an image customization with context. If it exists, call the custom image function
@@ -91,7 +99,7 @@ internal fun DesignFrame(
     meterValue?.let { customizations.setMeterValue(name, it) }
     var m =
         Modifier.layoutStyle(name, style)
-            .frameRender(style, shape, customImage, document, name, customizations)
+            .frameRender(style, shape, customImage, document, node, customizations, maskManager)
             .then(modifier)
 
     val customModifier = customizations.getModifier(name)
@@ -558,8 +566,9 @@ internal fun Modifier.frameRender(
     frameShape: ViewShape,
     customImageWithContext: Bitmap?,
     document: DocContent,
-    name: String,
+    node: NodeIdentifier,
     customizations: CustomizationContext,
+    maskManager: MutableState<MaskManager>?,
 ): Modifier =
     this.then(
         Modifier.drawWithContent {
@@ -569,8 +578,9 @@ internal fun Modifier.frameRender(
                 frameShape,
                 customImageWithContext,
                 document,
-                name,
+                node,
                 customizations,
+                maskManager,
             )
         }
     )
