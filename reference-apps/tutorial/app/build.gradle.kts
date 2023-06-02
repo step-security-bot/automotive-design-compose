@@ -24,6 +24,8 @@ plugins {
     id("designcompose.features.figma-token-task")
 }
 
+
+
 var applicationID = "com.android.designcompose.tutorial"
 
 @Suppress("UnstableApiUsage")
