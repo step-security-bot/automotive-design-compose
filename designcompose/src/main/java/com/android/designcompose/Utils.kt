@@ -61,6 +61,8 @@ import com.android.designcompose.serdegen.ScaleMode
 import com.android.designcompose.serdegen.TextAlign
 import com.android.designcompose.serdegen.TextAlignVertical
 import com.android.designcompose.serdegen.TextOverflow
+import com.android.designcompose.serdegen.View
+import com.android.designcompose.serdegen.ViewData
 import com.android.designcompose.serdegen.ViewShape
 import com.android.designcompose.serdegen.ViewStyle
 import com.android.designcompose.serdegen.WindingRule
@@ -593,6 +595,17 @@ internal fun BlendMode.useLayer() =
         is BlendMode.PassThrough -> false
         else -> true
     }
+
+internal fun View.hasChildMask(): Boolean {
+    if (data is ViewData.Container) {
+        (data as ViewData.Container).children.forEach { child -> if (child.isMask()) return true }
+    }
+    return false
+}
+
+internal fun View.isMask(): Boolean {
+    return this.data is ViewData.Container && (this.data as ViewData.Container).shape.isMask()
+}
 
 internal fun ViewShape.isMask(): Boolean {
     when (this) {

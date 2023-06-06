@@ -19,7 +19,6 @@ package com.android.designcompose
 import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.PointF
-import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
@@ -27,7 +26,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
@@ -426,81 +424,11 @@ private fun calculateArcData(
     return returnShape
 }
 
-private fun renderPaths(
-    drawContext: DrawContext,
-    style: ViewStyle,
-    frameSize: Size,
-    paths: List<Path>,
-    brushes: List<Paint>,
-    maskList: List<MaskData>?
-) {
-    // Setup a canvas to draw to. If there is a mask, we render to an in-memory bitmap so
-    // that we can combine the node and use the alpha channel of the mask to create a bitmap
-    // with alpha, then we render the bitmap onto this draw context's canvas.
-    var canvas = drawContext.canvas
-    var nodeBmp: Bitmap? = null
-    val bmpWidth = frameSize.width.roundToInt()
-    val bmpHeight = frameSize.height.roundToInt()
-
-    if (maskList?.isNotEmpty() == true) {
-        nodeBmp = Bitmap.createBitmap(bmpWidth, bmpHeight, Bitmap.Config.ARGB_8888)
-        canvas = Canvas(nodeBmp!!.asImageBitmap())
-    }
-
-    // Use the mask path to clip out only the renderable area
-    maskList?.forEach { maskData ->
-        val leftOffset = maskData.leftOffset - style.left.pointsAsDp().value
-        val topOffset = maskData.topOffset - style.top.pointsAsDp().value
-
-        // Translate the mask so it is positioned correctly with respect to this node. Combine the
-        // mask's fill and stroke paths to create one path, then use it to clip.
-        canvas.translate(leftOffset, topOffset)
-        val maskPath = Path()
-        maskData.paths.fillPaths.forEach { maskPath.addPath(it) }
-        maskData.paths.strokePaths.forEach { maskPath.addPath(it) }
-        canvas.clipPath(maskPath)
-
-        // Undo the translation so we draw the node at the correct location
-        canvas.translate(-leftOffset, -topOffset)
-    }
-
-    // Now render our node normally
+private fun renderPaths(drawContext: DrawContext, paths: List<Path>, brushes: List<Paint>) {
     for (path in paths) {
         for (paint in brushes) {
-            canvas.drawPath(path, paint)
+            drawContext.canvas.drawPath(path, paint)
         }
-    }
-
-    maskList?.forEach { maskData ->
-        // Translate the mask again, then render the mask with the DstIn blendmode so that
-        // we modulate the existing pixels with the alpha channel of the mask.
-        val leftOffset = maskData.leftOffset - style.left.pointsAsDp().value
-        val topOffset = maskData.topOffset - style.top.pointsAsDp().value
-        canvas.translate(leftOffset, topOffset)
-
-        if (maskData.paths.fillPaths.isNotEmpty()) {
-            for (fill in maskData.paths.fillPaths) {
-                for (paint in maskData.paths.fillBrush) {
-                    paint.blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
-                    canvas.drawPath(fill, paint)
-                }
-            }
-        }
-
-        if (maskData.paths.strokePaths.isNotEmpty()) {
-            for (stroke in maskData.paths.strokePaths) {
-                for (paint in maskData.paths.strokeBrush) {
-                    paint.blendMode = androidx.compose.ui.graphics.BlendMode.DstIn
-                    canvas.drawPath(stroke, paint)
-                }
-            }
-        }
-        canvas.translate(-leftOffset, -topOffset)
-    }
-
-    if (maskList?.isNotEmpty() == true) {
-        // Render out bitmap to the drawContext canvas
-        drawContext.canvas.drawImage(nodeBmp!!.asImageBitmap(), Offset(0F, 0F), Paint())
     }
 }
 
@@ -510,11 +438,9 @@ internal fun ContentDrawScope.render(
     frameShape: ViewShape,
     customImageWithContext: Bitmap?,
     document: DocContent,
-    node: NodeIdentifier,
+    name: String,
     customizations: CustomizationContext,
-    maskManager: MutableState<MaskManager>?,
 ) {
-    val name = node.name
     drawContext.canvas.save()
 
     var overrideTransform: androidx.compose.ui.graphics.Matrix? = null
@@ -777,12 +703,7 @@ internal fun ContentDrawScope.render(
         )
         drawContext.canvas.restore()
     } else {
-        // If this is a mask, add the data for this mask into the mask manager so siblings rendered
-        // after it can use it to mask their contents. Otherwise draw the fills.
-        if (!shape.isMask()) {
-            val maskList = maskManager?.value?.getMaskList(node.id)
-            renderPaths(drawContext, style, frameSize, fills, fillBrush, maskList)
-        }
+        renderPaths(drawContext, fills, fillBrush)
     }
 
     // Now do inset shadows
@@ -850,26 +771,6 @@ internal fun ContentDrawScope.render(
     }
     drawContext.canvas.restore()
 
-    fun renderStrokes() {
-        if (shape.isMask()) {
-            // If this is a mask, don't render; instead give the mask manager all the fill and
-            // stroke data so that sibling nodes can use it
-            val maskPaths = MaskPaths(fills, strokes, fillBrush, strokeBrush, frameShape)
-            val maskData =
-                MaskData(
-                    node.id,
-                    style.left.pointsAsDp().value,
-                    style.top.pointsAsDp().value,
-                    maskPaths
-                )
-            maskManager?.value?.addMaskData(maskData)
-        } else {
-            // Get any masks that apply to this node and render
-            val maskList = maskManager?.value?.getMaskList(node.id)
-            renderPaths(drawContext, style, frameSize, strokes, strokeBrush, maskList)
-        }
-    }
-
     if (shouldClip) {
         // Clip children, and paint our stroke on top of them.
         drawContext.canvas.save()
@@ -878,10 +779,10 @@ internal fun ContentDrawScope.render(
         }
         drawContent()
         drawContext.canvas.restore()
-        renderStrokes()
+        renderPaths(drawContext, strokes, strokeBrush)
     } else {
         // No clipping; paint our stroke first and then paint our children.
-        renderStrokes()
+        renderPaths(drawContext, strokes, strokeBrush)
         drawContent()
     }
 

@@ -51,8 +51,6 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -79,7 +77,6 @@ import com.android.designcompose.serdegen.Reaction
 import com.android.designcompose.serdegen.Trigger
 import com.android.designcompose.serdegen.View
 import com.android.designcompose.serdegen.ViewData
-import com.android.designcompose.serdegen.ViewShape
 import com.android.designcompose.serdegen.ViewStyle
 import java.util.Optional
 import kotlin.math.min
@@ -308,103 +305,21 @@ fun DesignInjectKey(key: Char, metaKeys: List<DesignMetaKey>) {
     KeyInjectManager.injectKey(key, metaKeys)
 }
 
-// Data class that holds pathing data for how to render a mask
-internal data class MaskPaths(
-    var fillPaths: List<Path> = listOf(),
-    var strokePaths: List<Path> = listOf(),
-    var fillBrush: List<Paint> = listOf(),
-    var strokeBrush: List<Paint> = listOf(),
-    var shape: ViewShape? = null,
-) {
-    // Override the equals function so that we don't recompose infinitely. Whenever we render a mask
-    // in FrameRender's render() function, the mask adds its data to the mask manager. If we don't
-    // override equals here, the default equals() function will always return false. Instead, we
-    // base the equality on the equality of the shape, which is the serialized object parsed
-    // from Figma. This object will only change when the mask itself changes in Figma.
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is MaskPaths) return false
-        return shape == other.shape
-    }
+// When rendering with masks, we need to differentiate nodes that are masks themselves, a node with
+// a child that is a mask, and normal nodes with no masking involved.
+internal enum class MaskViewType {
+    None,
+    MaskNode,
+    MaskParent,
 }
 
-// Data class used by nodes that are affected by a mask
-internal data class MaskData(
-    // Node ID of the mask
-    var id: String = "",
-    // Left offset from the mask parent
-    var leftOffset: Float = 0F,
-    // Top offset from the mask parent
-    var topOffset: Float = 0F,
-    // The path data for the mask
-    var paths: MaskPaths,
+// Helper class that groups together data needed to support masks
+internal data class MaskInfo(
+    // Keep track of the size of a node that has a child that is a mask
+    val parentSize: MutableState<Size>?,
+    // The type of node with respect to masking
+    val type: MaskViewType?,
 )
-
-// Data class that manages mask relationships of which masks affect which nodes
-internal data class MaskManager(
-    // Maps ID of a mask to its pathing data
-    private val maskIdToPaths: SnapshotStateMap<String, MaskPaths> = SnapshotStateMap(),
-    // Maps ID of a mask to its full mask data
-    private val maskIdToData: SnapshotStateMap<String, MaskData> = SnapshotStateMap(),
-    // Maps ID of a node to a list of masks that affect it
-    private val nodeIdToMaskList: SnapshotStateMap<String, ArrayList<String>> = SnapshotStateMap(),
-) {
-    // Associate nodeId with maskId: nodeId is masked by maskId
-    fun addMaskToNode(nodeId: String, maskId: String) {
-        if (!nodeIdToMaskList.contains(nodeId)) nodeIdToMaskList[nodeId] = ArrayList()
-        if (nodeIdToMaskList[nodeId]?.contains(maskId) == false)
-            nodeIdToMaskList[nodeId]?.add(maskId)
-    }
-    fun removeMask(maskId: String) {
-        maskIdToData.remove(maskId)
-    }
-    fun removeNode(nodeId: String) {
-        nodeIdToMaskList.remove(nodeId)
-    }
-    // Add the given mask data
-    fun addMaskData(maskData: MaskData) {
-        if (maskIdToData[maskData.id] != maskData) maskIdToData[maskData.id] = maskData
-        if (maskIdToPaths[maskData.id] != maskData.paths)
-            maskIdToPaths[maskData.id] = maskData.paths
-    }
-    // Return a list of all masks that mask the given nodeId
-    fun getMaskList(nodeId: String): List<MaskData>? {
-        val maskIds = nodeIdToMaskList[nodeId]
-        val maskList = ArrayList<MaskData>()
-        maskIds?.map { maskId -> maskIdToData[maskId]?.let { maskList.add(it) } }
-        return maskList
-    }
-    fun getNodeIdSet(): HashSet<String> {
-        return nodeIdToMaskList.keys.toHashSet()
-    }
-    // Called by a node that is masked and has children. This function returns a list of masks
-    // for the given node, but modifies these masks by giving them new IDs and offsets them by the
-    // node's offset.
-    fun getParentMaskList(nodeId: String, style: ViewStyle): List<MaskData>? {
-        val maskIds = nodeIdToMaskList[nodeId]
-        val maskList = ArrayList<MaskData>()
-        maskIds?.map { maskId ->
-            maskIdToData[maskId]?.let {
-                val id = it.id + "_$nodeId"
-                val leftOffset = it.leftOffset - style.left.pointsAsDp().value
-                val topOffset = it.topOffset - style.top.pointsAsDp().value
-                val maskData = MaskData(id, leftOffset, topOffset, it.paths)
-                maskList.add(maskData)
-            }
-        }
-        return maskList
-    }
-    // Called by a node that is masked and has children. This function returns a set of mask IDs
-    // that affect this node minus any that are in excludeParentList. The resulting set is used to
-    // keep track of masks that are still around so that we can remove masks that have been
-    // removed from live data.
-    fun getMaskIdSet(excludeParentList: List<MaskData>?): HashSet<String> {
-        val maskIdSet = maskIdToData.keys.toHashSet()
-        if (!excludeParentList.isNullOrEmpty())
-            maskIdSet.removeAll(excludeParentList.map { it.id }.toSet())
-        return maskIdSet
-    }
-}
 
 @Composable
 internal fun DesignView(
@@ -418,7 +333,7 @@ internal fun DesignView(
     interactionScope: CoroutineScope,
     parentComponents: List<ParentComponentInfo>,
     parentLayoutInfo: ParentLayoutInfo,
-    parentMaskManager: MutableState<MaskManager>? = null,
+    maskInfo: MaskInfo? = null,
 ) {
     val parentComps =
         if (v.component_info.isPresent) {
@@ -737,86 +652,100 @@ internal fun DesignView(
             // Optional.empty
             // into DesignFrame's componentInfo parameter.
             val hasVariantReplacement = view.name != v.name
+
+            // Get the mask info from parameters unless we have a child that is a mask, in which
+            // case we know the mask view type is MaskParent and we create a new parent size
+            // mutable state.
+            var maskViewType = maskInfo?.type
+            var parentSize = maskInfo?.parentSize
+            if (view.hasChildMask()) {
+                maskViewType = MaskViewType.MaskParent
+                parentSize = remember { mutableStateOf(Size(0F, 0F)) }
+            }
+
             DesignFrame(
                 m,
                 style,
                 (view.data as ViewData.Container).shape,
-                NodeIdentifier(view.name, view.id),
+                view.name,
                 variantParentName,
                 viewLayoutInfo,
                 document,
                 customizations,
                 if (hasVariantReplacement) Optional.empty() else view.component_info,
                 parentComponents,
-                parentMaskManager,
+                MaskInfo(parentSize, maskViewType),
             ) { parentLayoutInfoForChildren ->
                 val customContent = customizations.getContent(view.name)
                 if (customContent != null) {
                     customContent()
                 } else {
                     if ((view.data as ViewData.Container).children.isNotEmpty()) {
-                        // Create a mask manager to keep track of masks for children of this view
-                        val maskManager = remember { mutableStateOf(MaskManager()) }
-
-                        // Get any masks that apply to this view. Add a copy of these masks to our
-                        // children, with the masks offset by the position of this view
-                        val parentMaskList =
-                            parentMaskManager?.value?.getParentMaskList(view.id, style)
-                        parentMaskList?.forEach { maskManager.value.addMaskData(it) }
-
-                        // Keep track of current masks and masked nodes under this node. As we
-                        // iterate through the children we remove from these hashes and then
-                        // anything left will be removed from maskManager. This is required so that
-                        // when nodes and masks are added, removed, or moved in Figma, we update
-                        // the state in MaskManager properly.
-                        val currentMasks = maskManager.value.getMaskIdSet(parentMaskList)
-                        val currentMaskedChildren = maskManager.value.getNodeIdSet()
-                        var currentMaskId = ""
+                        // Create  a list of views to render. If the view is a mask, the second item
+                        // in the pair is a list of views that they mask. This lets us iterate
+                        // through all the views that a mask affects first, render them to a layer,
+                        // and then render the mask itself on top with appropriate alpha blending.
+                        // Note that we currently only support one mask under a parent, and we
+                        // don't support unmasked nodes under a parent when there exists a mask.
+                        val viewList: ArrayList<Pair<View, ArrayList<View>>> = ArrayList()
+                        var currentMask: View? = null
                         (view.data as ViewData.Container).children.forEach { child ->
-                            child?.let { childView ->
-                                if (
-                                    childView.data is ViewData.Container &&
-                                        (childView.data as ViewData.Container).shape.isMask()
-                                ) {
-                                    currentMaskId = childView.id
-                                    currentMasks.remove(currentMaskId)
+                            val shouldClip = child.style.overflow is Overflow.Hidden
+                            if (child.isMask()) {
+                                // Add the mask to the list and set the current mask
+                                viewList.add(Pair(child, ArrayList()))
+                                currentMask = child
+                            } else if (shouldClip) {
+                                // A node with clip contents ends the reach of the last mask, so
+                                // add this view to the list and clear the current mask
+                                viewList.add(Pair(child, ArrayList()))
+                                currentMask = null
+                            } else {
+                                if (currentMask != null) {
+                                    // This view is masked so add it to the mask's list
+                                    viewList.last().second.add(child)
                                 } else {
-                                    if (currentMaskId.isNotEmpty()) {
-                                        // Mask ends when it reaches a node with clip contents
-                                        val shouldClip = childView.style.overflow is Overflow.Hidden
-                                        if (shouldClip) {
-                                            currentMaskId = ""
-                                        } else {
-                                            maskManager.value.addMaskToNode(
-                                                childView.id,
-                                                currentMaskId
-                                            )
-                                            currentMaskedChildren.remove(childView.id)
-                                        }
-                                    }
-                                    parentMaskList?.forEach {
-                                        maskManager.value.addMaskToNode(childView.id, it.id)
-                                        currentMaskedChildren.remove(childView.id)
-                                    }
+                                    // This view is not masked so add it to the main list
+                                    viewList.add(Pair(child, ArrayList()))
                                 }
-
-                                DesignView(
-                                    Modifier,
-                                    childView,
-                                    "",
-                                    docId,
-                                    document,
-                                    customizations,
-                                    interactionState,
-                                    interactionScope,
-                                    parentComps,
-                                    parentLayoutInfoForChildren,
-                                    maskManager,
-                                )
                             }
                         }
-                        currentMasks.forEach { maskManager.value.removeMask(it) }
-                        currentMaskedChildren.forEach { maskManager.value.removeNode(it) }
+                        viewList.forEach {
+                            val childView = it.first
+                            val maskedChildren = it.second
+                            var maskViewType = MaskViewType.None
+                            if (maskedChildren.isNotEmpty()) {
+                                maskedChildren.forEach { maskedChild ->
+                                    DesignView(
+                                        Modifier,
+                                        maskedChild,
+                                        "",
+                                        docId,
+                                        document,
+                                        customizations,
+                                        interactionState,
+                                        interactionScope,
+                                        parentComps,
+                                        parentLayoutInfoForChildren,
+                                        MaskInfo(parentSize, maskViewType),
+                                    )
+                                }
+                                maskViewType = MaskViewType.MaskNode
+                            }
+                            DesignView(
+                                Modifier,
+                                childView,
+                                "",
+                                docId,
+                                document,
+                                customizations,
+                                interactionState,
+                                interactionScope,
+                                parentComps,
+                                parentLayoutInfoForChildren,
+                                MaskInfo(parentSize, maskViewType),
+                            )
+                        }
                     }
                 }
             }

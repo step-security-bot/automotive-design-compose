@@ -27,18 +27,21 @@ import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.withSaveLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.minus
-import androidx.core.graphics.plus
 import com.android.designcompose.serdegen.ComponentInfo
 import com.android.designcompose.serdegen.GridLayoutType
 import com.android.designcompose.serdegen.GridSpan
@@ -48,27 +51,21 @@ import com.android.designcompose.serdegen.ViewShape
 import com.android.designcompose.serdegen.ViewStyle
 import java.util.Optional
 
-internal data class NodeIdentifier(
-    val name: String,
-    val id: String,
-)
-
 @Composable
 internal fun DesignFrame(
     modifier: Modifier = Modifier,
     style: ViewStyle,
     shape: ViewShape,
-    node: NodeIdentifier,
+    name: String,
     variantParentName: String,
     layoutInfo: SimplifiedLayoutInfo,
     document: DocContent,
     customizations: CustomizationContext,
     componentInfo: Optional<ComponentInfo>,
     parentComponents: List<ParentComponentInfo>,
-    maskManager: MutableState<MaskManager>?,
+    maskInfo: MaskInfo?,
     content: @Composable (parentLayoutInfo: ParentLayoutInfo) -> Unit,
 ) {
-    val name = node.name
     if (!customizations.getVisible(name)) return
 
     // Check for an image customization with context. If it exists, call the custom image function
@@ -99,7 +96,7 @@ internal fun DesignFrame(
     meterValue?.let { customizations.setMeterValue(name, it) }
     var m =
         Modifier.layoutStyle(name, style)
-            .frameRender(style, shape, customImage, document, node, customizations, maskManager)
+            .frameRender(style, shape, customImage, document, name, customizations, maskInfo)
             .then(modifier)
 
     val customModifier = customizations.getModifier(name)
@@ -566,21 +563,46 @@ internal fun Modifier.frameRender(
     frameShape: ViewShape,
     customImageWithContext: Bitmap?,
     document: DocContent,
-    node: NodeIdentifier,
+    name: String,
     customizations: CustomizationContext,
-    maskManager: MutableState<MaskManager>?,
+    maskInfo: MaskInfo?,
 ): Modifier =
     this.then(
         Modifier.drawWithContent {
-            render(
-                this@frameRender,
-                style,
-                frameShape,
-                customImageWithContext,
-                document,
-                node,
-                customizations,
-                maskManager,
-            )
+            fun render() =
+                render(
+                    this@frameRender,
+                    style,
+                    frameShape,
+                    customImageWithContext,
+                    document,
+                    name,
+                    customizations,
+                )
+            when (maskInfo?.type ?: MaskViewType.None) {
+                MaskViewType.MaskNode -> {
+                    // When rendering a mask, call saveLayer with blendmode DSTIN so that we blend
+                    // the masks's alpha with what has already been rendered. We also need to adjust
+                    // the rectangle to be the size and position of the parent because masks affect
+                    // the whole area of the parent
+                    val paint = Paint()
+                    paint.blendMode = BlendMode.DstIn
+                    val offset =
+                        Offset(-style.left.pointsAsDp().value, -style.top.pointsAsDp().value)
+                    val parentSize = maskInfo?.parentSize?.value ?: size
+                    drawContext.canvas.withSaveLayer(Rect(offset, parentSize), paint) { render() }
+                }
+                MaskViewType.MaskParent -> {
+                    // When rendering a node that has a child mask, call saveLayer so that its
+                    // children are all rendered to a separate target. Save the size of this
+                    // drawing context so that the child mask can adjust its drawing size to mask
+                    // the entire parent
+                    maskInfo?.parentSize?.value = size
+                    drawContext.canvas.withSaveLayer(size.toRect(), Paint()) { render() }
+                }
+                else -> {
+                    render()
+                }
+            }
         }
     )
