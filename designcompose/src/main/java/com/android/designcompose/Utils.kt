@@ -61,6 +61,8 @@ import com.android.designcompose.serdegen.ScaleMode
 import com.android.designcompose.serdegen.TextAlign
 import com.android.designcompose.serdegen.TextAlignVertical
 import com.android.designcompose.serdegen.TextOverflow
+import com.android.designcompose.serdegen.View
+import com.android.designcompose.serdegen.ViewData
 import com.android.designcompose.serdegen.ViewShape
 import com.android.designcompose.serdegen.ViewStyle
 import com.android.designcompose.serdegen.WindingRule
@@ -594,6 +596,9 @@ internal fun BlendMode.useLayer() =
         else -> true
     }
 
+internal fun View.isMask(): Boolean {
+    return this.data is ViewData.Container && (this.data as ViewData.Container).shape.isMask()
+}
 internal fun ViewShape.isMask(): Boolean {
     when (this) {
         is ViewShape.Rect -> return is_mask

@@ -348,7 +348,16 @@ internal data class MaskManager(
     private val maskIdToData: SnapshotStateMap<String, MaskData> = SnapshotStateMap(),
     // Maps ID of a node to a list of masks that affect it
     private val nodeIdToMaskList: SnapshotStateMap<String, ArrayList<String>> = SnapshotStateMap(),
+
+    private val parentSize: MutableState<Size> = mutableStateOf(Size(0F, 0F))
 ) {
+    fun setParentSize(size: Size) {
+        parentSize.value = size
+    }
+    fun getParentSize(): Size {
+        return parentSize.value
+    }
+
     // Associate nodeId with maskId: nodeId is masked by maskId
     fun addMaskToNode(nodeId: String, maskId: String) {
         if (!nodeIdToMaskList.contains(nodeId)) nodeIdToMaskList[nodeId] = ArrayList()
@@ -406,6 +415,18 @@ internal data class MaskManager(
     }
 }
 
+internal enum class MaskViewType {
+    None,
+    FirstMaskedView,
+    MaskPaths,
+    MaskParent,
+}
+
+private class ViewRenderData(
+    view: View,
+    maskViewType: MaskViewType,
+)
+
 @Composable
 internal fun DesignView(
     modifier: Modifier = Modifier,
@@ -419,6 +440,7 @@ internal fun DesignView(
     parentComponents: List<ParentComponentInfo>,
     parentLayoutInfo: ParentLayoutInfo,
     parentMaskManager: MutableState<MaskManager>? = null,
+    maskViewType: MaskViewType = MaskViewType.None,
 ) {
     val parentComps =
         if (v.component_info.isPresent) {
@@ -737,6 +759,27 @@ internal fun DesignView(
             // Optional.empty
             // into DesignFrame's componentInfo parameter.
             val hasVariantReplacement = view.name != v.name
+
+            fun hasChildMask(view: View): Boolean {
+                if (view.data is ViewData.Container) {
+                    (view.data as ViewData.Container).children.forEach { child ->
+                        if (child.isMask())
+                            return true
+                    }
+                }
+                return false
+            }
+            var frameMaskViewType = maskViewType
+            var maskManager = parentMaskManager
+            if (hasChildMask(view)) {
+                frameMaskViewType = MaskViewType.MaskParent
+                maskManager = remember { mutableStateOf(MaskManager()) }
+            }
+
+            val viewList: ArrayList<Pair<ViewRenderData, ArrayList<View>>> = ArrayList()
+            (view.data as ViewData.Container).children.forEach {
+            }
+
             DesignFrame(
                 m,
                 style,
@@ -748,13 +791,15 @@ internal fun DesignView(
                 customizations,
                 if (hasVariantReplacement) Optional.empty() else view.component_info,
                 parentComponents,
-                parentMaskManager,
+                maskManager,
+                frameMaskViewType,
             ) { parentLayoutInfoForChildren ->
                 val customContent = customizations.getContent(view.name)
                 if (customContent != null) {
                     customContent()
                 } else {
                     if ((view.data as ViewData.Container).children.isNotEmpty()) {
+                        /*
                         // Create a mask manager to keep track of masks for children of this view
                         val maskManager = remember { mutableStateOf(MaskManager()) }
 
@@ -772,6 +817,79 @@ internal fun DesignView(
                         val currentMasks = maskManager.value.getMaskIdSet(parentMaskList)
                         val currentMaskedChildren = maskManager.value.getNodeIdSet()
                         var currentMaskId = ""
+                        */
+
+                        // List of views to render. If the view is a mask, second item in the pair
+                        // is a list of views that they mask
+                        val viewListOld: ArrayList<Pair<View, ArrayList<View>>> = ArrayList()
+                        var currentMask: View? = null
+                        (view.data as ViewData.Container).children.forEach { child ->
+                            val shouldClip = child.style.overflow is Overflow.Hidden
+                            if (child.isMask()) {
+                                // Add the mask to the list and set the current mask
+                                viewListOld.add(Pair(child, ArrayList()))
+                                currentMask = child
+                            }
+                            else if (shouldClip) {
+                                // A node with clip contents ends the reach of the last mask, so
+                                // add this view to the list and clear the current mask
+                                viewListOld.add(Pair(child, ArrayList()))
+                                currentMask = null
+                            } else {
+                                if (currentMask != null) {
+                                    // This view is masked so add it to the mask's list
+                                    viewListOld.last().second.add(child)
+                                } else {
+                                    // This view is not masked so add it to the main list
+                                    viewListOld.add(Pair(child, ArrayList()))
+                                }
+                            }
+                        }
+                        viewListOld.forEach {
+                            val childView = it.first
+                            val maskedChildren = it.second
+                            var maskViewType = MaskViewType.None
+                            if (maskedChildren.isNotEmpty()) {
+                                var count = 0
+                                maskedChildren.forEach { maskedChild ->
+                                    val maskViewTypeChild = if (count == 0)
+                                        MaskViewType.FirstMaskedView
+                                    else
+                                        MaskViewType.None
+                                    ++count
+                                    DesignView(
+                                        Modifier,
+                                        maskedChild,
+                                        "",
+                                        docId,
+                                        document,
+                                        customizations,
+                                        interactionState,
+                                        interactionScope,
+                                        parentComps,
+                                        parentLayoutInfoForChildren,
+                                        maskManager,
+                                        maskViewTypeChild,
+                                    )
+                                }
+                                maskViewType = MaskViewType.MaskPaths
+                            }
+                            DesignView(
+                                Modifier,
+                                childView,
+                                "",
+                                docId,
+                                document,
+                                customizations,
+                                interactionState,
+                                interactionScope,
+                                parentComps,
+                                parentLayoutInfoForChildren,
+                                maskManager,
+                                maskViewType,
+                            )
+                        }
+                        /*
                         (view.data as ViewData.Container).children.forEach { child ->
                             child?.let { childView ->
                                 if (
@@ -817,6 +935,7 @@ internal fun DesignView(
                         }
                         currentMasks.forEach { maskManager.value.removeMask(it) }
                         currentMaskedChildren.forEach { maskManager.value.removeNode(it) }
+                        */
                     }
                 }
             }

@@ -27,7 +27,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
@@ -432,19 +433,16 @@ private fun renderPaths(
     frameSize: Size,
     paths: List<Path>,
     brushes: List<Paint>,
-    maskList: List<MaskData>?
+    maskList: List<MaskData>?,
+    nodeId: String,
 ) {
     // Setup a canvas to draw to. If there is a mask, we render to an in-memory bitmap so
     // that we can combine the node and use the alpha channel of the mask to create a bitmap
     // with alpha, then we render the bitmap onto this draw context's canvas.
     var canvas = drawContext.canvas
-    var nodeBmp: Bitmap? = null
-    val bmpWidth = frameSize.width.roundToInt()
-    val bmpHeight = frameSize.height.roundToInt()
 
     if (maskList?.isNotEmpty() == true) {
-        nodeBmp = Bitmap.createBitmap(bmpWidth, bmpHeight, Bitmap.Config.ARGB_8888)
-        canvas = Canvas(nodeBmp!!.asImageBitmap())
+        drawContext.canvas.saveLayer(frameSize.toRect(), Paint())
     }
 
     // Use the mask path to clip out only the renderable area
@@ -500,7 +498,7 @@ private fun renderPaths(
 
     if (maskList?.isNotEmpty() == true) {
         // Render out bitmap to the drawContext canvas
-        drawContext.canvas.drawImage(nodeBmp!!.asImageBitmap(), Offset(0F, 0F), Paint())
+        drawContext.canvas.restore()
     }
 }
 
@@ -513,9 +511,13 @@ internal fun ContentDrawScope.render(
     node: NodeIdentifier,
     customizations: CustomizationContext,
     maskManager: MutableState<MaskManager>?,
+    maskViewType: MaskViewType,
 ) {
+    if (node.name.startsWith("Mask"))
+        println("    ### Render ${node.name} maskType $maskViewType")
+
     val name = node.name
-    drawContext.canvas.save()
+   // drawContext.canvas.save()
 
     var overrideTransform: androidx.compose.ui.graphics.Matrix? = null
     var frameSize = size
@@ -779,10 +781,13 @@ internal fun ContentDrawScope.render(
     } else {
         // If this is a mask, add the data for this mask into the mask manager so siblings rendered
         // after it can use it to mask their contents. Otherwise draw the fills.
+        /*
         if (!shape.isMask()) {
             val maskList = maskManager?.value?.getMaskList(node.id)
-            renderPaths(drawContext, style, frameSize, fills, fillBrush, maskList)
+            renderPaths(drawContext, style, frameSize, fills, fillBrush, maskList, MaskViewType.None)
         }
+        */
+        renderPaths(drawContext, style, frameSize, fills, fillBrush, listOf(), node.id)
     }
 
     // Now do inset shadows
@@ -851,6 +856,7 @@ internal fun ContentDrawScope.render(
     drawContext.canvas.restore()
 
     fun renderStrokes() {
+        /*
         if (shape.isMask()) {
             // If this is a mask, don't render; instead give the mask manager all the fill and
             // stroke data so that sibling nodes can use it
@@ -866,8 +872,10 @@ internal fun ContentDrawScope.render(
         } else {
             // Get any masks that apply to this node and render
             val maskList = maskManager?.value?.getMaskList(node.id)
-            renderPaths(drawContext, style, frameSize, strokes, strokeBrush, maskList)
+            renderPaths(drawContext, style, frameSize, strokes, strokeBrush, maskList, MaskViewType.None)
         }
+        */
+        renderPaths(drawContext, style, frameSize, strokes, strokeBrush, listOf(), node.id)
     }
 
     if (shouldClip) {
@@ -888,5 +896,5 @@ internal fun ContentDrawScope.render(
     if (useBlendMode) {
         drawContext.canvas.restore()
     }
-    drawContext.canvas.restore()
+    //drawContext.canvas.restore()
 }

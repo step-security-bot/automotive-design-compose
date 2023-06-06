@@ -32,13 +32,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.toRect
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.withSaveLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.minus
-import androidx.core.graphics.plus
 import com.android.designcompose.serdegen.ComponentInfo
 import com.android.designcompose.serdegen.GridLayoutType
 import com.android.designcompose.serdegen.GridSpan
@@ -66,6 +70,7 @@ internal fun DesignFrame(
     componentInfo: Optional<ComponentInfo>,
     parentComponents: List<ParentComponentInfo>,
     maskManager: MutableState<MaskManager>?,
+    maskViewType: MaskViewType,
     content: @Composable (parentLayoutInfo: ParentLayoutInfo) -> Unit,
 ) {
     val name = node.name
@@ -99,7 +104,7 @@ internal fun DesignFrame(
     meterValue?.let { customizations.setMeterValue(name, it) }
     var m =
         Modifier.layoutStyle(name, style)
-            .frameRender(style, shape, customImage, document, node, customizations, maskManager)
+            .frameRender(style, shape, customImage, document, node, customizations, maskManager, maskViewType)
             .then(modifier)
 
     val customModifier = customizations.getModifier(name)
@@ -569,18 +574,55 @@ internal fun Modifier.frameRender(
     node: NodeIdentifier,
     customizations: CustomizationContext,
     maskManager: MutableState<MaskManager>?,
+    maskViewType: MaskViewType,
 ): Modifier =
     this.then(
         Modifier.drawWithContent {
-            render(
-                this@frameRender,
-                style,
-                frameShape,
-                customImageWithContext,
-                document,
-                node,
-                customizations,
-                maskManager,
-            )
+            fun render() = render(
+                    this@frameRender,
+                    style,
+                    frameShape,
+                    customImageWithContext,
+                    document,
+                    node,
+                    customizations,
+                    maskManager,
+                    maskViewType,
+                )
+            when (maskViewType) {
+                MaskViewType.MaskPaths -> {
+                    val paint = Paint()
+                    paint.blendMode = BlendMode.DstIn
+                    println("### MASK ${node.name} saveLayer(DSTIN)")
+
+                    val offset =
+                        Offset(-style.left.pointsAsDp().value, -style.top.pointsAsDp().value)
+                    val parentSize = maskManager?.value?.getParentSize() ?: size
+                    drawContext.canvas.withSaveLayer(Rect(offset, parentSize), paint) {
+                        render()
+                    }
+                }
+                MaskViewType.MaskParent -> {
+                    maskManager?.value?.setParentSize(size)
+                    val paint = Paint()
+                    println("### PARENT ${node.name} saveLayer()")
+                    drawContext.canvas.withSaveLayer(size.toRect(), paint) {
+                        render()
+                    }
+                }
+                else -> {
+                    if (maskViewType == MaskViewType.FirstMaskedView) {
+                        if (node.name.startsWith("Mask"))
+                            println("### FIRST MASKED ${node.name}")
+                        //drawContext.canvas.saveLayer(size.toRect(), Paint())
+                    } else {
+                        if (node.name.startsWith("Mask"))
+                            println("### NORMAL ${node.name}")
+                    }
+                    render()
+                    //if (maskViewType == MaskViewType.FirstMaskedView)
+                        //drawContext.canvas.restore()
+                }
+            }
         }
     )
