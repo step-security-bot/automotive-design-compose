@@ -108,6 +108,7 @@ mockk-agent = { module = "io.mockk:mockk-agent", version.ref = "mockkAgent" }
 mockk-android = { module = "io.mockk:mockk-android", version.ref = "mockkAndroid" }
 
 [plugins]
+designcompose = { id = "com.android.designcompose", version.ref = "designcompose" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 ktfmt = { id = "com.ncorti.ktfmt.gradle", version.ref = "ktfmt" }
 strictVersionMatcher = { id = "com.google.android.gms.strict-version-matcher-plugin", version.ref = "android-gms-strictVersionMatcher" }

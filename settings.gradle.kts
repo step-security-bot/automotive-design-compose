@@ -34,7 +34,7 @@ pluginManagement {
 
 rootProject.name = "DesignCompose"
 
-include(":designcompose")
+include(":gradle-plugin")
 
 include(":annotation")
 

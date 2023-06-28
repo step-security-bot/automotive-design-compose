@@ -39,3 +39,4 @@ plugins {
 }
 
 include("cargo-plugin")
+include("gradle-plugin")
