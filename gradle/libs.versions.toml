@@ -3,8 +3,8 @@ accompanist = "0.30.1"
 android-car-ui = "2.4.0"
 android-gms-ossLicenses = "17.0.1"
 android-gms-strictVersionMatcher = "1.2.4"
-# @keep Issue with Rust Android Gradle plugin
 android-gradlePlugin = "8.0.1"
+android-gradlePlugin-minSupported = "7.4.2"
 androidx-activity-compose = "1.7.1"
 androidx-appcompat = "1.6.1"
 androidx-compose-bom = "2023.05.00"
@@ -60,6 +60,7 @@ accompanist-flowlayout = { module = "com.google.accompanist:accompanist-flowlayo
 android-car-ui = { module = "com.android.car.ui:car-ui-lib", version.ref = "android-car-ui" }
 android-gms-strictVersionMatcher = { module = "com.google.android.gms:strict-version-matcher-plugin", version.ref = "android-gms-strictVersionMatcher" }
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "android-gradlePlugin" }
+android-gradlePlugin-minimumSupportedVersion = { module = "com.android.tools.build:gradle", version.ref = "android-gradlePlugin-minSupported" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity-compose" }
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "androidx-appcompat" }
 androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "androidx-compose-bom" }
