@@ -15,17 +15,15 @@
  */
 
 buildscript {
-  repositories {
-    google()
-    mavenCentral()
-  }
-  dependencies {
-    // These are plugins that are published as external jars, integrating directly into the
-    // build scripts
-    classpath(libs.kotlin.gradlePlugin)
-  }
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // These are plugins that are published as external jars, integrating directly into the
+        // build scripts
+        classpath(libs.kotlin.gradlePlugin)
+    }
 }
 
-plugins {
-  id("designcompose.conventions.base")
-}
+plugins { id("designcompose.conventions.base") }

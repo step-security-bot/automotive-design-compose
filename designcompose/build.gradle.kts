@@ -53,6 +53,10 @@ android {
     }
 }
 
+listOf("publish", "publishToMavenLocal", "publishAllPublicationsToLocalDirRepository").forEach {
+    tasks.named(it) { dependsOn(gradle.includedBuild("plugins").task(":gradle-plugin:${it}")) }
+}
+
 // Defines the configuration for the Rust JNI build
 
 cargo {
