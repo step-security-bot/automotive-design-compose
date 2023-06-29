@@ -18,35 +18,42 @@ import designcompose.conventions.publish.basePom
 
 @Suppress("DSL_SCOPE_VIOLATION") // TODO: Remove once KTIJ-19369 is fixed
 plugins {
-    kotlin("jvm")
-    `java-gradle-plugin`
-    id("designcompose.conventions.base")
-    id("designcompose.conventions.publish.common")
+  kotlin("jvm")
+  `java-gradle-plugin`
+  id("designcompose.conventions.base")
+  id("designcompose.conventions.publish.common")
 }
 
 gradlePlugin {
-    plugins {
-        create("designcompose-gradle-plugin") {
-            id = "com.android.designcompose"
-            displayName = "com.android.designcompose.gradle.plugin"
-            implementationClass = "com.android.designcompose.gradle.Plugin"
-        }
+  plugins {
+    create("designcompose-gradle-plugin") {
+      id = "com.android.designcompose"
+      displayName = "com.android.designcompose.gradle.plugin"
+      implementationClass = "com.android.designcompose.gradle.Plugin"
     }
+  }
 }
 
 publishing {
-    publications.create<MavenPublication>("pluginMaven") {
-        pom {
-            basePom()
-            artifactId = "gradle-plugin"
-            name.set("Automotive Design for Compose Plugin")
-            description.set(
-                "Plugin that adds base configuration and assisting tasks to DesignCompose-enabled apps"
-            )
-        }
+  publications.create<MavenPublication>("pluginMaven") {
+    pom {
+      basePom()
+      artifactId = "gradle-plugin"
+      name.set("Automotive Design for Compose Plugin")
+      description.set(
+          "Plugin that adds base configuration and assisting tasks to DesignCompose-enabled apps")
     }
+  }
 }
 
+tasks.named<Test>("test") { useJUnitPlatform() }
+
+java { sourceSets { test { resources.srcDir(File(rootDir, "../reference-apps/tutorial/app")) } } }
+
 dependencies {
-    compileOnly(libs.android.gradlePlugin.minimumSupportedVersion)
+  compileOnly(libs.android.gradlePlugin.minimumSupportedVersion)
+  testImplementation("org.junit.jupiter:junit-jupiter:5.7.1")
+
+  testImplementation("com.google.truth:truth:1.1.3")
+  testImplementation(gradleTestKit())
 }
