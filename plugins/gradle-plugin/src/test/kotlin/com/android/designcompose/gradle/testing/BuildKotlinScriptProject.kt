@@ -1,12 +1,13 @@
 package com.android.designcompose.gradle.testing
 
-import org.junit.rules.TemporaryFolder
 import java.io.File
+import org.junit.jupiter.api.extension.TestWatcher
 
-class KotlinScriptProject(private val projectDir: TemporaryFolder) {
+class KotlinScriptProject(private val projectDir: File) : TestWatcher {
+
   fun setup() {
     projectDir
-        .newFile("settings.gradle.kts")
+        .resolve("settings.gradle.kts")
         .writeText(
             """
             val DesignComposeMavenRepo: String by settings
@@ -19,20 +20,30 @@ class KotlinScriptProject(private val projectDir: TemporaryFolder) {
                     mavenCentral()
                 }
             }
+            pluginManagement {
+                val kotlinVersion: String by settings
+                val agpVersion: String by settings
+                plugins {
+                     kotlin("android") version kotlinVersion
+                     id("com.android.application") version agpVersion
+                }
+                repositories {
+                    gradlePluginPortal()
+                    google()
+                }
+            }
+            
         """
                 .trimIndent())
 
     projectDir
-        .newFile("build.gradle.kts")
+        .resolve("build.gradle.kts")
         .writeText(
             """
-            val agpVersion: String by project
-            val kotlinVersion: String by project
-            
             plugins {
-                kotlin("android") version kotlinVersion
-                id("com.android.application") version agpVersion
-                }
+                kotlin("android") 
+                id("com.android.application") 
+            }
             android {
                 compileSdk = 32
                 defaultConfig {
@@ -53,8 +64,10 @@ class KotlinScriptProject(private val projectDir: TemporaryFolder) {
                 implementation(libs.androidx.compose.material)
                 implementation(libs.material)
             }
-        """.trimIndent())
-      this.javaClass::class.java.getResource("/src")?.file?.let { File(it).copyRecursively(projectDir.root) }
-
+        """
+                .trimIndent())
+    this.javaClass::class.java.getResource("/src")?.file?.let {
+      File(it).copyRecursively(projectDir)
+    }
   }
 }

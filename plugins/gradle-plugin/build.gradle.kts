@@ -46,13 +46,22 @@ publishing {
   }
 }
 
-tasks.named<Test>("test") { useJUnitPlatform() }
+tasks.named<Test>("test") {
+  useJUnitPlatform()
+  javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+  testLogging {
+      showCauses = true
+      showExceptions = true
+      showStackTraces = true
+      showStandardStreams = true
+  }
+}
 
 java { sourceSets { test { resources.srcDir(File(rootDir, "../reference-apps/tutorial/app")) } } }
 
 dependencies {
   compileOnly(libs.android.gradlePlugin.minimumSupportedVersion)
-  testImplementation("org.junit.jupiter:junit-jupiter:5.7.1")
+  testImplementation("org.junit.jupiter:junit-jupiter:5.9.3")
 
   testImplementation("com.google.truth:truth:1.1.3")
   testImplementation(gradleTestKit())
