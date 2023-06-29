@@ -17,6 +17,8 @@ set -e
 usage() {
 cat  <<END
 This script should run all of the tests that CI will run. (It'll need to be kept up to date though)
+Options:
+  -s: Skip emulator tests
 Pre-requisites: 
     Must be run on a system that can run emulators
     Have \$ORG_GRADLE_PROJECT_unbundledAAOSDir set to your AAOS Unbundled repo
@@ -36,8 +38,8 @@ while getopts "s" opt; do
       exit 0
       ;;
 
-    esac
-    done
+  esac
+done
 
 
 GIT_ROOT=$(git rev-parse --show-toplevel)
@@ -66,7 +68,7 @@ cargo test --all-targets --all-features
 
 if [[ $run_emulator_tests == 1 ]]; then
   ./gradlew tabletAtdApi30Check -Pandroid.testoptions.manageddevices.emulator.gpu=swiftshader_indirect
-  fi
+fi
 
 cd "$GIT_ROOT/reference-apps/tutorial"
 ./gradlew --init-script ../local-design-compose-repo.init.gradle.kts check
