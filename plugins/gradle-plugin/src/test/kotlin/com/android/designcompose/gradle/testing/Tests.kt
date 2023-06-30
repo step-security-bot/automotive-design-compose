@@ -2,21 +2,21 @@ package com.android.designcompose.gradle.testing
 
 import java.io.File
 import org.gradle.testkit.runner.GradleRunner
-import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.CleanupMode
 import org.junit.jupiter.api.io.TempDir
 
 class Tests {
 
-  @TempDir(cleanup = CleanupMode.NEVER) var testProjectDir: File? = null
-
-  lateinit var project: KotlinScriptProject
-
-  @BeforeEach
-  fun setup() {
-    project = KotlinScriptProject(testProjectDir!!)
-    project.setup()
+  companion object {
+    lateinit var project: KotlinScriptProject
+    @BeforeAll
+    @JvmStatic
+    fun setup(@TempDir(cleanup = CleanupMode.NEVER) testProjectDir: File) {
+      project = KotlinScriptProject(testProjectDir)
+      project.setup()
+    }
   }
 
   @Test
@@ -29,7 +29,7 @@ class Tests {
             "-PDesignComposeMavenRepo=/usr/local/google/home/froeht/git/designcompose-github/build/designcompose_m2repo")
     GradleRunner.create()
         .withPluginClasspath()
-        .withProjectDir(testProjectDir)
+        .withProjectDir(project.projectDir)
         .withArguments(args)
         .build()
   }

@@ -57,7 +57,11 @@ tasks.named<Test>("test") {
   }
 }
 
-java { sourceSets { test { resources.srcDir(File(rootDir, "../reference-apps/tutorial/app")) } } }
+java { sourceSets { test { resources{
+    srcDir(File(rootDir, "../reference-apps/tutorial/app/src/"))
+    srcDir(File(rootDir, "../gradle"))
+    exclude("wrapper", "test", "androidTest")
+} } } }
 
 dependencies {
   compileOnly(libs.android.gradlePlugin.minimumSupportedVersion)

@@ -3,7 +3,8 @@ package com.android.designcompose.gradle.testing
 import java.io.File
 import org.junit.jupiter.api.extension.TestWatcher
 
-class KotlinScriptProject(private val projectDir: File) : TestWatcher {
+class KotlinScriptProject(val projectDir: File) : TestWatcher {
+
 
   fun setup() {
     projectDir
@@ -43,11 +44,12 @@ class KotlinScriptProject(private val projectDir: File) : TestWatcher {
             plugins {
                 kotlin("android") 
                 id("com.android.application") 
+                alias(libs.plugins.ksp)
             }
             android {
                 compileSdk = 32
                 defaultConfig {
-                    minSdkVersion = 30
+                    minSdk = 30
                 }
                 composeOptions {
                     kotlinCompilerExtensionVersion = libs.versions.androidx.compose.compiler.get()
@@ -66,8 +68,11 @@ class KotlinScriptProject(private val projectDir: File) : TestWatcher {
             }
         """
                 .trimIndent())
-    this.javaClass::class.java.getResource("/src")?.file?.let {
-      File(it).copyRecursively(projectDir)
+    javaClass.getResource("/main")?.file!!.let {
+      File(it).copyRecursively(projectDir.resolve("src/main").also { dir -> dir.mkdir() })
+    }
+    javaClass.getResource("/libs.versions.toml")?.file!!.let {
+      File(it).copyRecursively(projectDir.resolve("gradle/libs.versions.toml"))
     }
   }
 }
