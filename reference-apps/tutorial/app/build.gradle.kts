@@ -63,6 +63,7 @@ android {
         kotlinCompilerExtensionVersion = libs.versions.androidx.compose.compiler.get()
     }
 
+    // Deprecated in AGP 8+, replaced by `packaging`
     packagingOptions { resources { excludes.add("/META-INF/{AL2.0,LGPL2.1}") } }
 }
 
